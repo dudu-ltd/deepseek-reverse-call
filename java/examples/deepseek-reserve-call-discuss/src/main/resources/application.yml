@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: deepseek-reverse-call-discuss
+  profiles:
+    active: dev
+
+deepseek:
+  base-url: https://api.deepseek.com
+  #  https://platform.deepseek.com/api_keys
+  api-key: <API_KEY>
+  model: deepseek-chat 
+
+dsrc:
+  config: /dsrc.yaml
+  appKey: <API_KEY>
+
+logging:
+  level:
+    io.github.corvusye.dsrc: DEBUG
