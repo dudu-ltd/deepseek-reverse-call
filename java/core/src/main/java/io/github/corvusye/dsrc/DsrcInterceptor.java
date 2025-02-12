@@ -4,7 +4,7 @@ package io.github.corvusye.dsrc;
 //
 // This source code is licensed under Apache 2.0 License.
 
-import io.github.corvusye.dsrc.pojo.DeepSeekResult;
+import io.github.pigmesh.ai.deepseek.core.chat.ChatCompletionResponse;
 
 /**
  * @author yeweicheng
@@ -13,6 +13,6 @@ import io.github.corvusye.dsrc.pojo.DeepSeekResult;
  */
 public interface DsrcInterceptor {
   
-  boolean intercept(DeepSeekResult result);
+  boolean intercept(ChatCompletionResponse result);
 
 }

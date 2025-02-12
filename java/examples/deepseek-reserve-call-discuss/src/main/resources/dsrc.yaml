@@ -2,9 +2,8 @@ task:
   say:
     discuss:
       name: 闲聊
-      message:
-      schema: 
-        discuss: <放置闲聊的内容，类型：String>
+      message: 
+      schema: <放置闲聊的内容，类型：String>
     chess: 
       name: 下棋
       message:

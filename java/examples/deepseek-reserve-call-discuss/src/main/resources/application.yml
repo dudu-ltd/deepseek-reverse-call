@@ -8,7 +8,10 @@ deepseek:
   base-url: https://api.deepseek.com
   #  https://platform.deepseek.com/api_keys
   api-key: <API_KEY>
-  model: deepseek-chat 
+  model: deepseek-chat
+  log-requests: true
+  log-responses: true
+  log-level: DEBUG
 
 dsrc:
   config: /dsrc.yaml

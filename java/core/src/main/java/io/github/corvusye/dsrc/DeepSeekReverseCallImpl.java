@@ -4,16 +4,18 @@ package io.github.corvusye.dsrc;
 //
 // This source code is licensed under Apache 2.0 License.
 
-import static io.github.corvusye.dsrc.DsrcConst.BUILD_IN_API;
+import static io.github.corvusye.dsrc.DsrcConst.ROUTER_API;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
-import io.github.corvusye.dsrc.pojo.DeepSeekResult;
-import io.github.corvusye.dsrc.pojo.Message;
+import io.github.corvusye.dsrc.pojo.DeepSeekOptions;
 import io.github.corvusye.dsrc.pojo.RouteValue;
+import io.github.pigmesh.ai.deepseek.core.chat.ChatCompletionResponse;
+import io.github.pigmesh.ai.deepseek.core.chat.Message;
+import io.github.pigmesh.ai.deepseek.core.chat.SystemMessage;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -54,6 +56,7 @@ public class DeepSeekReverseCallImpl implements DeepSeekReverseCall {
   final Iterable<DsrcInterceptor> interceptors;
 
   final Map<String, Pair<Method, DsrcAnswer>> answerMap = new HashMap<>();
+  final Map<String, Map<String, String>> apiSchema = new HashMap<>();
 
   public DeepSeekReverseCallImpl(String configFilePath, DeepSeek deepSeek) {
     this.configFilePath = configFilePath;
@@ -76,11 +79,11 @@ public class DeepSeekReverseCallImpl implements DeepSeekReverseCall {
   }
 
   public DeepSeekReverseCallImpl(String configFilePath, DeepSeek deepSeek,
-    Iterable<DsrcAnswer> answers, Iterable<DsrcInterceptor> intercepters) {
+    Iterable<DsrcAnswer> answers, Iterable<DsrcInterceptor> interceptors) {
     this.configFilePath = configFilePath;
     this.deepSeek = deepSeek;
     this.answers = answers;
-    this.interceptors = intercepters;
+    this.interceptors = interceptors;
     yaml = getYaml(configFilePath);
     allowAnswer = answers != null && answers.iterator().hasNext();
     registerAnswers();
@@ -90,8 +93,7 @@ public class DeepSeekReverseCallImpl implements DeepSeekReverseCall {
   public <T> T api(
     String apiName,
     List<Message> messages,
-    Map<String, Object> options,
-    List<Object> args,
+    DeepSeekOptions options,
     Modes mode,
     Class<T> clazz
   ) throws IOException {
@@ -112,8 +114,8 @@ public class DeepSeekReverseCallImpl implements DeepSeekReverseCall {
     }
 
     outputConversation("send", msgsTotal);
-    DeepSeekResult result = deepSeek.createChat(msgsTotal, mode, options);
-    outputConversation("receive", result.allMessage());
+    ChatCompletionResponse result = deepSeek.createChat(msgsTotal, mode, options);
+    outputConversation("receive",allMessage(result));
 
     boolean returnDefault = doIntercepts(result);
     if (returnDefault) {
@@ -122,13 +124,13 @@ public class DeepSeekReverseCallImpl implements DeepSeekReverseCall {
 
     T rs = null;
     try {
-      String text = result.getOne();
+      String text = one(result);
       RouteValue routerValue = JSONObject.parseObject(text, RouteValue.class);
-      List<Message> fromLocal = route(routerValue, messages, options, args, mode);
+      List<Message> fromLocal = route(routerValue, messages, options, mode);
       if (routerValue.getFinished() && fromLocal != null && !fromLocal.isEmpty()) {
         ArrayList<Message> allMsgs = new ArrayList<>(messages);
         allMsgs.addAll(fromLocal);
-        RouteValue route = api(BUILD_IN_API, allMsgs, options, args, mode, RouteValue.class);
+        RouteValue route = api(ROUTER_API, allMsgs, options, mode, RouteValue.class);
         if (route != null && route.getData() != null) {
           rs = JSON.parseObject(route.getData().toString(), clazz);
         }
@@ -142,8 +144,7 @@ public class DeepSeekReverseCallImpl implements DeepSeekReverseCall {
   private List<Message> route(
     RouteValue route,
     List<Message> messages,
-    Map<String, Object> options,
-    List<Object> args,
+    DeepSeekOptions options,
     Modes mode
   ) throws IOException {
     // 通过 route 获取 answer
@@ -154,7 +155,8 @@ public class DeepSeekReverseCallImpl implements DeepSeekReverseCall {
     DsrcAnswer answer = pair.getValue();
 
     try {
-      Object obj = pair.getKey().invoke(answer, route.getData(), messages);
+      Method method = pair.getKey();
+      Object obj = method.invoke(answer, route.getData(), messages);
       if (obj instanceof List) {
         return (List<Message>) obj;
       } else if (obj instanceof Message) {
@@ -173,8 +175,7 @@ public class DeepSeekReverseCallImpl implements DeepSeekReverseCall {
     } else if (clazz == List.class) {
       return (T) messages;
     } else {
-      return tryParse(messages.get(0).getContent(), clazz);
-//      return JSON.parseObject(messages.get(0).getContent(), clazz);
+      return tryParse(JSONObject.from(messages.get(0)).get("content").toString(), clazz);
     }
   }
 
@@ -187,17 +188,19 @@ public class DeepSeekReverseCallImpl implements DeepSeekReverseCall {
   }
 
   @SuppressWarnings("unchecked")
-  private <T> T resultToReturn(DeepSeekResult result, Class<T> clazz) {
-    if (clazz == Object.class) {
+  private <T> T resultToReturn(ChatCompletionResponse result, Class<T> clazz) {
+    if (clazz == String.class) {
+      return (T) one(result);
+    } else if (clazz == Object.class) {
       return (T) result;
     } else if (clazz == List.class) {
-      return (T) result.allMessage();
+      return (T) allMessage(result);
     } else {
-      return tryParse(result.getOne(), clazz);
+      return tryParse(one(result), clazz);
     }
   }
 
-  private boolean doIntercepts(DeepSeekResult result) {
+  private boolean doIntercepts(ChatCompletionResponse result) {
     boolean returnDefault = false;
     if (interceptors != null) {
       for (DsrcInterceptor interceptor : interceptors) {
@@ -217,10 +220,10 @@ public class DeepSeekReverseCallImpl implements DeepSeekReverseCall {
       // 兼容数组和字符串
       if (message.isArray()) {
         for (JsonNode msg : message) {
-          msgs.add(new Message(msg.asText(), Roles.system));
+          msgs.add(SystemMessage.from(msg.asText()));
         }
       } else if (message.isTextual()) {
-        msgs.add(new Message(message.asText(), Roles.system));
+        msgs.add(SystemMessage.from(message.asText()));
       }
     }
     JsonNode schema = data.get(CONFIG_KEY_SCHEMA);
@@ -229,8 +232,8 @@ public class DeepSeekReverseCallImpl implements DeepSeekReverseCall {
     }
     String schemaFormat = schema.toString();
     msgs.add(
-      new Message(String.format(
-        "输出：%s，连```json```都不要出现，不然我会很生气", schemaFormat), Roles.system
+      SystemMessage.from(String.format(
+        "输出：%s，连```json```都不要出现，不然我会很生气", schemaFormat)
       )
     );
     return msgs;
@@ -332,13 +335,15 @@ public class DeepSeekReverseCallImpl implements DeepSeekReverseCall {
         apiList.put(scope + "." + apiName, apiMap);
       }
     }
+    apiSchema.putAll(apiList);
     return apiList;
   }
 
   void outputConversation(String prompt, List<Message> messages) {
     if (log.isDebugEnabled()) {
-      String conversation = messages.stream().filter(Message::isNotSystem)
-        .map(m -> m.getRole() + ": " + m.getContent())
+      String conversation = messages.stream()
+        .filter(m -> !(m instanceof SystemMessage))
+        .map(m -> m.role() + ": " + JSONObject.from(m).get("content").toString())
         .collect(Collectors.joining("\n"));
       log.debug("\n---- {} ----\n{}", prompt, conversation);
     }

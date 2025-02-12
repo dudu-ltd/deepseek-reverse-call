@@ -4,10 +4,11 @@ package io.github.corvusye.dsrc;
 //
 // This source code is licensed under Apache 2.0 License.
 
-import static io.github.corvusye.dsrc.DsrcConst.BUILD_IN_API;
+import static io.github.corvusye.dsrc.DsrcConst.ROUTER_API;
 
 import com.alibaba.fastjson2.JSON;
-import io.github.corvusye.dsrc.pojo.Message;
+import io.github.pigmesh.ai.deepseek.core.chat.Message;
+import io.github.pigmesh.ai.deepseek.core.chat.UserMessage;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,13 +37,13 @@ class DeepseekReverseCallDiscussApplicationTests {
   @Test
   @Order(2)
   void discuss() throws IOException {
-    talkToDeepSeek("阿西莫夫的机器人三定律是啥");
+    talkToDeepSeek("你那个时候最新的电影是哪一部啊");
   }
 
   void talkToDeepSeek(String message) throws IOException {
     List<Message> messages = new ArrayList<>();
-    messages.add(new Message(message, Roles.user));
-    Object discussResult = dsrc.api(BUILD_IN_API, messages);
+    messages.add(UserMessage.from(message));
+    Object discussResult = dsrc.api(ROUTER_API, messages, String.class);
     log.info(JSON.toJSONString(discussResult));
   }
 }

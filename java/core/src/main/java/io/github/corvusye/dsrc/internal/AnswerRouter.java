@@ -7,7 +7,7 @@ package io.github.corvusye.dsrc.internal;
 import io.github.corvusye.dsrc.DeepSeekReverseCall;
 import io.github.corvusye.dsrc.DsrcAnswer;
 import io.github.corvusye.dsrc.DsrcApi;
-import io.github.corvusye.dsrc.pojo.Message;
+import io.github.pigmesh.ai.deepseek.core.chat.Message;
 import java.util.List;
 
 /**

@@ -19,6 +19,7 @@ public interface DsrcConst {
   String ACCEPT = "Accept";
   String AUTH = "Authorization";
   
-  String BUILD_IN_API = "dsrc.router";
+  String ROUTER_API = "dsrc.router";
+  String SUMMARY_API = "dsrc.summary";
   
 }

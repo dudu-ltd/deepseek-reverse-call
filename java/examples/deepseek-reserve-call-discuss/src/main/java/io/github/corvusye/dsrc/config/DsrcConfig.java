@@ -5,10 +5,11 @@ package io.github.corvusye.dsrc.config;
 // This source code is licensed under Apache 2.0 License.
 
 import io.github.corvusye.dsrc.DeepSeek;
-import io.github.corvusye.dsrc.DeepSeekHttpClientImpl;
+import io.github.corvusye.dsrc.DeepSeek4jImpl;
 import io.github.corvusye.dsrc.DeepSeekReverseCall;
 import io.github.corvusye.dsrc.DeepSeekReverseCallImpl;
 import io.github.corvusye.dsrc.DsrcAnswer;
+import io.github.pigmesh.ai.deepseek.core.DeepSeekClient;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,10 +33,12 @@ public class DsrcConfig {
   // 请注意，如果不允许 AI 反向调用，可以不注入 answers   
   @Autowired(required = false)
   private List<DsrcAnswer> answers;
+  @Autowired
+  private DeepSeekClient deepSeekClient;
   
   @Bean
   public DeepSeek deepSeek() {
-    return new DeepSeekHttpClientImpl(appKey);
+    return new DeepSeek4jImpl(deepSeekClient);
   }
   
   @Bean

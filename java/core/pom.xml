@@ -33,11 +33,6 @@
       <scope>provided</scope>
     </dependency>
 
-    <dependency>
-      <groupId>org.apache.httpcomponents</groupId>
-      <artifactId>httpclient</artifactId>
-      <version>${httpclient.version}</version>
-    </dependency>
     <!-- https://mvnrepository.com/artifact/com.alibaba.fastjson2/fastjson2 -->
     <dependency>
       <groupId>com.alibaba.fastjson2</groupId>

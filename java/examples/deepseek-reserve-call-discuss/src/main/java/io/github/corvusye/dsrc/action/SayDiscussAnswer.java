@@ -8,10 +8,9 @@ import com.alibaba.fastjson2.JSONObject;
 import io.github.corvusye.dsrc.DeepSeekReverseCall;
 import io.github.corvusye.dsrc.DsrcAnswer;
 import io.github.corvusye.dsrc.DsrcApi;
-import io.github.corvusye.dsrc.Roles;
 import io.github.corvusye.dsrc.pojo.Chess;
-import io.github.corvusye.dsrc.pojo.Discuss;
-import io.github.corvusye.dsrc.pojo.Message;
+import io.github.pigmesh.ai.deepseek.core.chat.Message;
+import io.github.pigmesh.ai.deepseek.core.chat.UserMessage;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,14 +34,14 @@ public class SayDiscussAnswer implements DsrcAnswer {
   @DsrcApi("discuss")
   public List<Message> discuss(Object args, List<Message> messages)
     throws IOException {
-    String discuss = JSONObject.parseObject(args.toString(), Discuss.class).getDiscuss();
+    String discuss = args.toString();
     List<Message> newMsgs = new ArrayList<>(deepSeekReverseCall.reverseRole(messages));
-    Message prevMsg = new Message(discuss, Roles.user);
+    Message prevMsg = UserMessage.from(discuss);
     newMsgs.add(prevMsg);
-    Discuss currentMsg = deepSeekReverseCall.api("say.discuss", newMsgs, Discuss.class);
+    String currentMsg = deepSeekReverseCall.api("say.discuss", newMsgs, String.class);
     List<Message> response = new ArrayList<>();
-    response.add(prevMsg.reverseRole());
-    response.add(new Message(currentMsg.getDiscuss(), Roles.user));
+    response.add(deepSeekReverseCall.reverseRole(prevMsg));
+    response.add(UserMessage.from(currentMsg));
     return response;
   }
   
@@ -51,12 +50,12 @@ public class SayDiscussAnswer implements DsrcAnswer {
     throws IOException {
     String discuss = JSONObject.parseObject(args.toString(), Chess.class).getChess();
     List<Message> newMsgs = new ArrayList<>(deepSeekReverseCall.reverseRole(messages));
-    Message prevMsg = new Message(discuss, Roles.user);
+    Message prevMsg = UserMessage.from(discuss);
     newMsgs.add(prevMsg);
     Chess currentMsg = deepSeekReverseCall.api("say.chess", newMsgs, Chess.class);
     List<Message> response = new ArrayList<>();
-    response.add(prevMsg.reverseRole());
-    response.add(new Message(currentMsg.getChess(), Roles.user));
+    response.add(deepSeekReverseCall.reverseRole(prevMsg));
+    response.add(UserMessage.from(currentMsg.getChess()));
     return response;
   }
   

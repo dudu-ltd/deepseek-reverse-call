@@ -9,12 +9,14 @@ import static io.github.corvusye.dsrc.DsrcConst.MSG_KEG;
 
 import com.alibaba.fastjson2.JSON;
 import io.github.corvusye.dsrc.pojo.DeepSeekOptions;
-import io.github.corvusye.dsrc.pojo.DeepSeekResult;
-import io.github.corvusye.dsrc.pojo.Message;
+import io.github.pigmesh.ai.deepseek.core.chat.ChatCompletionChoice;
+import io.github.pigmesh.ai.deepseek.core.chat.ChatCompletionResponse;
+import io.github.pigmesh.ai.deepseek.core.chat.Message;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * DeepSeek 接口
@@ -25,32 +27,15 @@ import java.util.Map;
  */
 public interface DeepSeek {
 
-  String BASE_URL = "https://api.deepseek.com";
-  String COMPLETIONS = "/chat/completions";
-
-  DeepSeekOptions DEFAULT_OPTIONS =
-    new DeepSeekOptions(0, null, 0, false, 1, 1, false, null, null);
-
-  DeepSeekResult createChat(List<Message> messages, Modes mode, Map<String, Object> options)
+  ChatCompletionResponse createChat(List<Message> messages, Modes mode, DeepSeekOptions options)
     throws IOException;
 
-  default DeepSeekResult createChat(List<Message> messages, Modes mode) throws IOException {
+  default ChatCompletionResponse createChat(List<Message> messages, Modes mode) throws IOException {
     return createChat(messages, mode, null);
   }
 
-  default DeepSeekResult createChat(List<Message> messages) throws IOException {
+  default ChatCompletionResponse createChat(List<Message> messages) throws IOException {
     return createChat(messages, Modes.chat);
   }
-
-  default String jsonParam(List<Message> messages, Modes mode, Map<String, Object> options) {
-    Map<String, Object> param = new HashMap<>(DEFAULT_OPTIONS.toMap());
-    if (options != null) {
-      param.putAll(options);
-    }
-    param.put(MSG_KEG, messages);
-    param.put(MODEL_KEY, mode.getName());
-    return JSON.toJSONString(param);
-  }
-
 
 }

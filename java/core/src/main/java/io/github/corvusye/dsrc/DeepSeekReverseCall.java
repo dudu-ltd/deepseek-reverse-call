@@ -4,11 +4,17 @@ package io.github.corvusye.dsrc;
 //
 // This source code is licensed under Apache 2.0 License.
 
-import io.github.corvusye.dsrc.pojo.Message;
+import com.alibaba.fastjson2.JSON;
+import io.github.corvusye.dsrc.pojo.DeepSeekOptions;
+import io.github.pigmesh.ai.deepseek.core.chat.AssistantMessage;
+import io.github.pigmesh.ai.deepseek.core.chat.ChatCompletionChoice;
+import io.github.pigmesh.ai.deepseek.core.chat.ChatCompletionResponse;
+import io.github.pigmesh.ai.deepseek.core.chat.Message;
+import io.github.pigmesh.ai.deepseek.core.chat.UserMessage;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * @author yeweicheng
@@ -17,22 +23,14 @@ import java.util.Map;
  */
 public interface DeepSeekReverseCall {
 
-  <T> T  api(
-    String apiName,
-    List<Message> messages,
-    Map<String, Object> options,
-    List<Object> args, Modes mode,
-    Class<T> returnType
-  ) throws IOException;
-
   default <T> T  api(
     String apiName,
     List<Message> messages,
-    Map<String, Object> options,
+    DeepSeekOptions options,
     Modes mode,
     Class<T> returnType
   ) throws IOException {
-    return api(apiName, messages, options, new ArrayList<>(), mode, returnType);
+    return api(apiName, messages, options, mode, returnType);
   }
 
   default <T> T  api(
@@ -51,20 +49,60 @@ public interface DeepSeekReverseCall {
   ) throws IOException {
     return api(apiName, messages, Modes.chat, returnType);
   }
-  
+
   default Object api(
     String apiName,
     List<Message> messages
   ) throws IOException {
     return api(apiName, messages, Object.class);
   }
+
+  default Object api(
+    String apiName,
+    String message
+  ) throws IOException {
+    List<Message> messages = new ArrayList<>();
+    messages.add(UserMessage.from(message));
+    return api(apiName, messages, Object.class);
+  }
   
   default List<Message> reverseRole(List<Message> messages) {
     List<Message> msgs = new ArrayList<>();
     for (Message message : messages) {
-      msgs.add(message.reverseRole());
+      msgs.add(reverseRole(message));
     }
     return msgs;
+  }
+  
+  default Message reverseRole(Message message) {
+    if (message instanceof UserMessage) {
+      return AssistantMessage.from(content(message));
+    } else if (message instanceof AssistantMessage) {
+      return UserMessage.from(content(message));
+    }
+    return message;
+  }
+  
+  default String content(Message message) {
+    if (message instanceof UserMessage) {
+      Object content = ((UserMessage) message).content();
+      return JSON.toJSONString(content);
+    } else if (message instanceof AssistantMessage) {
+      return ((AssistantMessage) message).content();
+    }
+    return message.toString();
+  }
+
+
+  default List<Message> allMessage(ChatCompletionResponse response) {
+    List<ChatCompletionChoice> choices = response.choices();
+    return choices.stream()
+      .map(ChatCompletionChoice::message)
+      .collect(Collectors.toList());
+  }
+
+  default String one(ChatCompletionResponse response) {
+    return content(allMessage(response).get(0));
   }
   
 }
