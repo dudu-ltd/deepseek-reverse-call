@@ -16,15 +16,14 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <yaml.version>2.18.2</yaml.version>
-    <httpclient.version>4.5.13</httpclient.version>
     <fastjson.version>2.0.54</fastjson.version>
     <lombok.version>1.18.36</lombok.version>
+    <swagger.version>2.2.28</swagger.version>
+    <st4.version>4.3.4</st4.version>
     <version>1.0-SNAPSHOT</version>
   </properties>
 
   <dependencies>
-
 
     <!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-api -->
     <dependency>

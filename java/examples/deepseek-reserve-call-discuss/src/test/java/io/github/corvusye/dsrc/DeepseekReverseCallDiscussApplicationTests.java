@@ -4,14 +4,11 @@ package io.github.corvusye.dsrc;
 //
 // This source code is licensed under Apache 2.0 License.
 
-import static io.github.corvusye.dsrc.DsrcConst.ROUTER_API;
-
 import com.alibaba.fastjson2.JSON;
-import io.github.pigmesh.ai.deepseek.core.chat.Message;
-import io.github.pigmesh.ai.deepseek.core.chat.UserMessage;
+import io.github.corvusye.dsrc.pojo.Chess;
+import io.github.corvusye.dsrc.pojo.Discuss;
+import io.github.corvusye.dsrc.pojo.RouteValue;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
@@ -31,19 +28,46 @@ class DeepseekReverseCallDiscussApplicationTests {
   @Test
   @Order(1)
   void chess() throws IOException {
-    talkToDeepSeek("我们来下棋吧，你先下");
+    String message = "我们来下棋吧，你先下";
+    Chess chess = dsrc.api(message, Chess.class);
+    log.info(JSON.toJSONString(chess));
   }
 
   @Test
   @Order(2)
   void discuss() throws IOException {
-    talkToDeepSeek("你那个时候最新的电影是哪一部啊");
+    String message = "你那个时候最新的电影是哪一部啊";
+    Discuss movie = dsrc.api(message, Discuss.class);
+    log.info(JSON.toJSONString(movie));
   }
 
-  void talkToDeepSeek(String message) throws IOException {
-    List<Message> messages = new ArrayList<>();
-    messages.add(UserMessage.from(message));
-    Object discussResult = dsrc.api(ROUTER_API, messages, String.class);
-    log.info(JSON.toJSONString(discussResult));
+  @Test
+  @Order(2)
+  void discussMulti() throws IOException {
+    String message = "我们来讨论一下做点什么吧";
+    RouteValue movie = dsrc.api(message, RouteValue.class);
+    log.info(JSON.toJSONString(movie));
   }
+
+  @Test
+  @Order(3)
+  void route() throws IOException {
+    RouteValue seeYou = dsrc.api("你对学习大语言模型有什么建议", RouteValue.class);
+    log.info(JSON.toJSONString(seeYou));
+  }
+
+  @Test
+  @Order(4)
+  void stringTopic() throws IOException {
+    String greet = dsrc.api("你好", "我们来聊一聊");
+    log.info(greet);
+  }
+
+  @Test
+  @Order(5)
+  void goodbye() throws IOException {
+    RouteValue seeYou = dsrc.api("再见", RouteValue.class);
+    log.info(JSON.toJSONString(seeYou));
+  }
+
 }

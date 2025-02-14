@@ -13,13 +13,6 @@ public interface DsrcConst {
 
   String MSG_KEG = "messages";
   String MODEL_KEY = "model";
-  String CONTENT_TYPE = "Content-Type";
-  String APPLICATION_JSON = "application/json";
-  String APPLICATION_JSON_UTF8 = "application/json; charset=UTF-8";
-  String ACCEPT = "Accept";
-  String AUTH = "Authorization";
   
-  String ROUTER_API = "dsrc.router";
-  String SUMMARY_API = "dsrc.summary";
   
 }

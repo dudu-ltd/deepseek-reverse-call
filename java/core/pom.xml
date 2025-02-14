@@ -33,6 +33,19 @@
       <scope>provided</scope>
     </dependency>
 
+    <!-- Swagger Core 注解 -->
+    <dependency>
+      <groupId>io.swagger.core.v3</groupId>
+      <artifactId>swagger-annotations</artifactId>
+      <version>${swagger.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.antlr</groupId>
+      <artifactId>ST4</artifactId>
+      <version>${st4.version}</version>
+    </dependency>
+    
     <!-- https://mvnrepository.com/artifact/com.alibaba.fastjson2/fastjson2 -->
     <dependency>
       <groupId>com.alibaba.fastjson2</groupId>
@@ -40,12 +53,6 @@
       <version>${fastjson.version}</version>
     </dependency>
 
-    <dependency>
-      <groupId>com.fasterxml.jackson.dataformat</groupId>
-      <artifactId>jackson-dataformat-yaml</artifactId>
-      <version>${yaml.version}</version>
-    </dependency>
-    
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>

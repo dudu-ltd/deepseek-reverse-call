@@ -4,32 +4,26 @@ package io.github.corvusye.dsrc;
 //
 // This source code is licensed under Apache 2.0 License.
 
-import static io.github.corvusye.dsrc.DsrcConst.ROUTER_API;
+import static io.github.corvusye.dsrc.utils.DebugUtil.outputConversation;
 
 import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONObject;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+import io.github.corvusye.dsrc.internal.JsonSchemaGenerator;
+import io.github.corvusye.dsrc.internal.TalkingConvertorReflectImpl;
 import io.github.corvusye.dsrc.pojo.DeepSeekOptions;
-import io.github.corvusye.dsrc.pojo.RouteValue;
 import io.github.pigmesh.ai.deepseek.core.chat.ChatCompletionResponse;
 import io.github.pigmesh.ai.deepseek.core.chat.Message;
 import io.github.pigmesh.ai.deepseek.core.chat.SystemMessage;
-import java.io.BufferedReader;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.URL;
+import java.lang.reflect.TypeVariable;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import javafx.util.Pair;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -40,142 +34,192 @@ import lombok.extern.slf4j.Slf4j;
  * <br>Now is history!
  */
 @Slf4j
+@Data
 public class DeepSeekReverseCallImpl implements DeepSeekReverseCall {
 
-  final static private String CONFIG_KEY_TASK = "task";
-  final static private String CONFIG_KEY_NAME = "name";
-  final static private String CONFIG_KEY_MESSAGE = "message";
-  final static private String CONFIG_KEY_SCHEMA = "schema";
+  final private DeepSeek deepSeek;
+  final private Collection<DsrcAnswer> answers;
+  final private boolean allowAnswer;
+  final private Collection<DsrcInterceptor> interceptors;
+  final private SchemaGenerator schemaGenerator;
+  final private TalkingConvertor talkingConverter = new TalkingConvertorReflectImpl();
 
-  final static YAMLMapper mapper = new YAMLMapper();
-  final String configFilePath;
-  final JsonNode yaml;
-  final DeepSeek deepSeek;
-  final Iterable<DsrcAnswer> answers;
-  final boolean allowAnswer;
-  final Iterable<DsrcInterceptor> interceptors;
+  final private Map<String, Pair<Method, DsrcAnswer>> answerMap = new HashMap<>();
+  final private Map<String, Map<String, String>> apiRouters = new HashMap<>();
 
-  final Map<String, Pair<Method, DsrcAnswer>> answerMap = new HashMap<>();
-  final Map<String, Map<String, String>> apiSchema = new HashMap<>();
-
-  public DeepSeekReverseCallImpl(String configFilePath, DeepSeek deepSeek) {
-    this.configFilePath = configFilePath;
+  final private Map<String, Message> schemaFormatEntity = new HashMap<>();
+  final private Map<String, Message> schemaFormatReverse = new HashMap<>();
+  
+  public DeepSeekReverseCallImpl(DeepSeek deepSeek) {
+    schemaGenerator = new JsonSchemaGenerator();
     this.deepSeek = deepSeek;
-    yaml = getYaml(configFilePath);
     answers = null;
     allowAnswer = false;
     interceptors = null;
   }
 
-  public DeepSeekReverseCallImpl(String configFilePath, DeepSeek deepSeek,
-    Iterable<DsrcAnswer> answers) {
-    this.configFilePath = configFilePath;
+  public DeepSeekReverseCallImpl(
+      DeepSeek deepSeek, Collection<DsrcAnswer> answers
+  ) {
+    schemaGenerator = new JsonSchemaGenerator();
     this.deepSeek = deepSeek;
     this.answers = answers;
-    yaml = getYaml(configFilePath);
     allowAnswer = answers != null && answers.iterator().hasNext();
     interceptors = null;
     registerAnswers();
   }
 
-  public DeepSeekReverseCallImpl(String configFilePath, DeepSeek deepSeek,
-    Iterable<DsrcAnswer> answers, Iterable<DsrcInterceptor> interceptors) {
-    this.configFilePath = configFilePath;
+  public DeepSeekReverseCallImpl(DeepSeek deepSeek,
+      Collection<DsrcAnswer> answers, Collection<DsrcInterceptor> interceptors) {
+    schemaGenerator = new JsonSchemaGenerator();
     this.deepSeek = deepSeek;
     this.answers = answers;
     this.interceptors = interceptors;
-    yaml = getYaml(configFilePath);
+    allowAnswer = answers != null && answers.iterator().hasNext();
+    registerAnswers();
+  }
+
+  public DeepSeekReverseCallImpl(DeepSeek deepSeek,
+    Collection<DsrcAnswer> answers, Collection<DsrcInterceptor> interceptors, 
+    SchemaGenerator schemaGenerator
+  ) {
+    this.schemaGenerator = schemaGenerator;
+    this.deepSeek = deepSeek;
+    this.answers = answers;
+    this.interceptors = interceptors;
     allowAnswer = answers != null && answers.iterator().hasNext();
     registerAnswers();
   }
 
   @Override
   public <T> T api(
-    String apiName,
     List<Message> messages,
-    DeepSeekOptions options,
-    Modes mode,
-    Class<T> clazz
-  ) throws IOException {
-
-    JsonNode data = getApiConfig(apiName);
-    // 当未声明 api 时，直接返回
-    if (data == null) {
-      return null;
-    }
-
-    // 添加 yaml 中的消息
-    List<Message> msgsTotal = addYamlMessages(data);
-
-    // 添加用户输入的消息
-    msgsTotal.addAll(messages);
-    if (msgsTotal.isEmpty()) {
-      return null;
-    }
-
-    outputConversation("send", msgsTotal);
-    ChatCompletionResponse result = deepSeek.createChat(msgsTotal, mode, options);
-    outputConversation("receive",allMessage(result));
-
-    boolean returnDefault = doIntercepts(result);
-    if (returnDefault) {
-      return resultToReturn(result, clazz);
-    }
-
-    T rs = null;
-    try {
-      String text = one(result);
-      RouteValue routerValue = JSONObject.parseObject(text, RouteValue.class);
-      List<Message> fromLocal = route(routerValue, messages, options, mode);
-      if (routerValue.getFinished() && fromLocal != null && !fromLocal.isEmpty()) {
-        ArrayList<Message> allMsgs = new ArrayList<>(messages);
-        allMsgs.addAll(fromLocal);
-        RouteValue route = api(ROUTER_API, allMsgs, options, mode, RouteValue.class);
-        if (route != null && route.getData() != null) {
-          rs = JSON.parseObject(route.getData().toString(), clazz);
-        }
-      }
-    } catch (Exception e) {
-      return resultToReturn(result, clazz);
-    }
-    return rs == null ? resultToReturn(result, clazz) : rs;
-  }
-
-  private List<Message> route(
-    RouteValue route,
-    List<Message> messages,
+    Class<T> topic,
     DeepSeekOptions options,
     Modes mode
   ) throws IOException {
-    // 通过 route 获取 answer
-    Pair<Method, DsrcAnswer> pair = answerMap.get(route.getRoute());
-    if (pair == null) {
-      return null;
-    }
-    DsrcAnswer answer = pair.getValue();
-
-    try {
-      Method method = pair.getKey();
-      Object obj = method.invoke(answer, route.getData(), messages);
-      if (obj instanceof List) {
-        return (List<Message>) obj;
-      } else if (obj instanceof Message) {
-        return Arrays.asList((Message) obj);
-      }
-    } catch (Exception e) {
-      log.error("invoke error", e);
-    }
-    return null;
+    return api(messages, topic, options, mode, false);
   }
 
-  @SuppressWarnings("unchecked")
-  private <T> T resultToReturn(List<Message> messages, Class<T> clazz) {
-    if (clazz == Object.class) {
-      return (T) messages;
-    } else if (clazz == List.class) {
-      return (T) messages;
+  public <T> T api(
+    List<Message> messages,
+    Class<T> topic,
+    DeepSeekOptions options,
+    Modes mode,
+    boolean bySubTopic
+  ) throws IOException {
+    
+    List<Message> systemMessage = schemaGenerator.topicMessage(topic,this);
+    
+    Message schemaMessage = getSchemaMessage(topic, bySubTopic);
+    
+    List<Message> allMessages = new ArrayList<>(systemMessage);
+    if (schemaMessage != null) {
+      allMessages.add(schemaMessage);
+    }
+    allMessages.addAll(messages);
+    ChatCompletionResponse result = deepSeek.createChat(allMessages, schemaMessage, topic, mode, options);
+    outputConversation("receive",allMessage(result));
+    Message message = oneMessage(result);
+    doIntercepts(result);
+    T resultObj = resultToReturn(result, topic);
+
+    if (schemaGenerator.subTopics(topic).isEmpty()) {
+      return resultObj;
+    }
+
+    List<Message> nextStep =
+      subTopic(topic, resultObj, message, messages, result, options, mode);
+
+    if (nextStep != null && !nextStep.isEmpty()) {
+      messages.addAll(nextStep);
+      return api(messages, topic, options, mode, true);
+    }
+    return resultObj;
+  }
+
+  private <T> Message getSchemaMessage(Class<T> topic, boolean bySubTopic) {
+    String topicName = schemaGenerator.topicName(topic);
+    if (bySubTopic) {
+      String schemaMessage = schemaGenerator.schemaMessage(topic);
+      Message message = schemaFormatReverse.get(topicName);
+      if (message != null) {
+        return message;
+      } else {
+        SystemMessage formatMessage = SystemMessage.from("output json: " + schemaMessage);
+        schemaFormatReverse.put(topicName, formatMessage);
+        return formatMessage;
+      }
     } else {
-      return tryParse(JSONObject.from(messages.get(0)).get("content").toString(), clazz);
+      return schemaFormatEntity.get(topicName);
+    }
+  }
+
+  @Override
+  public String api(
+    List<Message> messages,
+    String prompt,
+    DeepSeekOptions options,
+    Modes mode
+  ) throws IOException {
+    List<Message> newMessage;
+    if (prompt != null && !prompt.isEmpty()) {
+      SystemMessage promptMessage = SystemMessage.from(prompt);
+      newMessage = new ArrayList<>();
+      newMessage.add(promptMessage);
+      newMessage.addAll(messages);
+    } else {
+      newMessage = messages;
+    }
+    ChatCompletionResponse result = deepSeek.createChat(newMessage, mode, options);
+    outputConversation("receive",allMessage(result));
+    doIntercepts(result);
+    return content(result);
+  }
+
+
+  @Override
+  public List<Message> subTopic(
+    Class<?> topic,
+    Object resultObj,
+    Message message,
+    List<Message> messages,
+    ChatCompletionResponse result,
+    DeepSeekOptions options,
+    Modes mode
+  ) {
+    String topicName = schemaGenerator.topicName(topic);
+    return subTopic(topicName, topic, resultObj, message, messages, result, options, mode);
+  }
+
+  @Override
+  public List<Message> subTopic(
+    String topicName,
+    Object resultObj,
+    Message message,
+    List<Message> messages,
+    ChatCompletionResponse result,
+    DeepSeekOptions options,
+    Modes mode
+  ) {
+    Class<?> topic = resultObj == null ? null : resultObj.getClass();
+    return subTopic(topicName, topic, resultObj, message, messages, result, options, mode);
+  }
+
+  private List<Message> subTopic(
+    String topicName,
+    Class<?> topic,
+    Object resultObj,
+    Message message,
+    List<Message> messages,
+    ChatCompletionResponse result,
+    DeepSeekOptions options,
+    Modes mode
+  ) {
+    try {
+      return talkingConverter.subTopic(topic, resultObj, message, messages, result, options, mode, this);
+    } catch (IllegalAccessException | InvocationTargetException e) {
+      throw new RuntimeException(e);
     }
   }
 
@@ -190,13 +234,13 @@ public class DeepSeekReverseCallImpl implements DeepSeekReverseCall {
   @SuppressWarnings("unchecked")
   private <T> T resultToReturn(ChatCompletionResponse result, Class<T> clazz) {
     if (clazz == String.class) {
-      return (T) one(result);
+      return (T) content(result);
     } else if (clazz == Object.class) {
       return (T) result;
     } else if (clazz == List.class) {
       return (T) allMessage(result);
     } else {
-      return tryParse(one(result), clazz);
+      return tryParse(content(result), clazz);
     }
   }
 
@@ -211,57 +255,6 @@ public class DeepSeekReverseCallImpl implements DeepSeekReverseCall {
       }
     }
     return returnDefault;
-  }
-
-  private List<Message> addYamlMessages(JsonNode data) {
-    JsonNode message = data.get(CONFIG_KEY_MESSAGE);
-    List<Message> msgs = new ArrayList<>();
-    if (message != null) {
-      // 兼容数组和字符串
-      if (message.isArray()) {
-        for (JsonNode msg : message) {
-          msgs.add(SystemMessage.from(msg.asText()));
-        }
-      } else if (message.isTextual()) {
-        msgs.add(SystemMessage.from(message.asText()));
-      }
-    }
-    JsonNode schema = data.get(CONFIG_KEY_SCHEMA);
-    if (schema == null) {
-      return msgs;
-    }
-    String schemaFormat = schema.toString();
-    msgs.add(
-      SystemMessage.from(String.format(
-        "输出：%s，连```json```都不要出现，不然我会很生气", schemaFormat)
-      )
-    );
-    return msgs;
-  }
-
-  private JsonNode getApiConfig(String apiName) {
-    String[] paths = apiName.split("\\.");
-    JsonNode data = yaml.get(CONFIG_KEY_TASK);
-    for (String path : paths) {
-      if (data == null) {
-        return null;
-      }
-      data = data.get(path);
-    }
-    return data;
-  }
-
-  private JsonNode getYaml(String configFilePath) {
-    URL resource = DeepSeekReverseCallImpl.class.getResource(configFilePath);
-    try {
-      String relativePath = resource.getPath();
-      FileInputStream fis = new FileInputStream(relativePath);
-      InputStreamReader inReader = new InputStreamReader(fis);
-      BufferedReader reader = new BufferedReader(inReader);
-      return mapper.readTree(reader);
-    } catch (IOException e) {
-      throw new RuntimeException("请检查配置文件参数是否正确，如 /dsrc.yaml：" + configFilePath, e);
-    }
   }
 
   private void registerAnswers() {
@@ -284,68 +277,18 @@ public class DeepSeekReverseCallImpl implements DeepSeekReverseCall {
         if (methodApiName.isEmpty()) {
           continue;
         }
-        answerMap.put(apiName + "." + methodApiName, new Pair<>(method, answer));
+        String topicName = apiName + "." + methodApiName;
+        answerMap.put(topicName, new Pair<>(method, answer));
+        cacheSchemaFormat(topicName, method);
       }
     }
-
-    addRouteConfigToYaml();
   }
 
-  private void addRouteConfigToYaml() {
-    JsonNode task = yaml.get(CONFIG_KEY_TASK);
-    if (task == null) {
-      return;
-    }
-    Map<String, Map<String, String>> api = apiList(task);
-    String[] yamlLines = new String[]{
-      "router:",
-      "  message:",
-      String.format(
-        "    - 你可以问我以下几种问题：\"%s\"，继续追问。如果不需要追问，必须返回空对象 {}",
-        JSON.toJSONString(api)),
-      "  schema:",
-      /** 这里的文本不要改。{@link RouteValue#route}*/
-      "    route: <API路径，如 say.hello>",
-      "    finished: <你有没有问题问我，类型：Boolean>",
-      "    data: <按data提到的格式组织json数据>"
-    };
-    try {
-      String join = String.join("\n", yamlLines);
-      JsonNode jsonNode = mapper.readTree(join);
-      ((ObjectNode) task).put("dsrc", jsonNode);
-    } catch (IOException e) {
-      throw new RuntimeException("你的应用不支持使用回调");
+  private void cacheSchemaFormat(String topicName, Method method) {
+    Message message = talkingConverter.schemaMessage(method, this);
+    if (message != null) {
+      schemaFormatEntity.put(topicName, message);
     }
   }
-
-  private Map<String, Map<String, String>> apiList(JsonNode task) {
-    // 如：ai.api -> {"name":"闲聊","data":{"discuss":<随便说>}}
-    Map<String, Map<String, String>> apiList = new HashMap<>();
-    Iterator<String> scopes = task.fieldNames();
-    while (scopes.hasNext()) {
-      String scope = scopes.next();
-      JsonNode api = task.get(scope);
-      Iterator<String> apiNames = api.fieldNames();
-      while (apiNames.hasNext()) {
-        String apiName = apiNames.next();
-        JsonNode apiData = api.get(apiName);
-        Map<String, String> apiMap = new HashMap<>();
-        apiMap.put(CONFIG_KEY_NAME, apiData.get(CONFIG_KEY_NAME).asText());
-        apiMap.put("data", apiData.get(CONFIG_KEY_SCHEMA).toString());
-        apiList.put(scope + "." + apiName, apiMap);
-      }
-    }
-    apiSchema.putAll(apiList);
-    return apiList;
-  }
-
-  void outputConversation(String prompt, List<Message> messages) {
-    if (log.isDebugEnabled()) {
-      String conversation = messages.stream()
-        .filter(m -> !(m instanceof SystemMessage))
-        .map(m -> m.role() + ": " + JSONObject.from(m).get("content").toString())
-        .collect(Collectors.joining("\n"));
-      log.debug("\n---- {} ----\n{}", prompt, conversation);
-    }
-  }
+  
 }

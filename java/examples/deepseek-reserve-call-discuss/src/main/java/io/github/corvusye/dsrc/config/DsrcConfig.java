@@ -44,7 +44,7 @@ public class DsrcConfig {
   @Bean
   public DeepSeekReverseCall deepSeekReverseCall(DeepSeek deepSeek) {
     // 如果不允许 AI 反向调用，请不要传入 answers
-    return new DeepSeekReverseCallImpl(configFilePath, deepSeek, answers);
+    return new DeepSeekReverseCallImpl(deepSeek, answers);
   }
 
 }
