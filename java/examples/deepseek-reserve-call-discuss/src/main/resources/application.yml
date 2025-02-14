@@ -13,10 +13,7 @@ deepseek:
   log-responses: true
   log-level: DEBUG
 
-dsrc:
-  config: /dsrc.yaml
-  appKey: <API_KEY>
 
 logging:
   level:
-    io.github.corvusye.dsrc: DEBUG
+    ltd.dudu.dsrc: DEBUG

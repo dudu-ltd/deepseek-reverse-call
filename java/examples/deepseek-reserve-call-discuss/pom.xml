@@ -10,7 +10,7 @@
     <relativePath/> <!-- lookup parent from repository -->
   </parent>
 
-	<groupId>io.github.corvusye</groupId>
+	<groupId>ltd.dudu</groupId>
 	<artifactId>deepseek-reverse-call-discuss</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>deepseek-reverse-call-discuss</name>
@@ -33,7 +33,7 @@
 	</properties>
 	<dependencies>
     <dependency>
-      <groupId>io.github.corvusye</groupId>
+      <groupId>ltd.dudu</groupId>
       <artifactId>deepseek-reverse-call-core</artifactId>
       <version>1.0-SNAPSHOT</version>
     </dependency>
