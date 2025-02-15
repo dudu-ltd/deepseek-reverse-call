@@ -5,12 +5,15 @@
   <parent>
     <groupId>ltd.dudu</groupId>
     <artifactId>deepseek-reverse-call-parent</artifactId>
-    <version>1.0.0-alpha</version>
+    <version>1.0.0-alpha2</version>
   </parent>
 
   <artifactId>deepseek-reverse-call-core</artifactId>
-  <version>1.0.0-alpha</version>
+  <version>${version}</version>
   <packaging>jar</packaging>
+
+  <name>deepseek-reverse-call-core</name>
+  <url>https://github.com/dudu-ltd/deepseek-reverse-call</url>
   <description>
     一个通过实体类即可定义 DeepSeek 不同主题及 json 格式返回值的工具
   </description>
@@ -22,8 +25,6 @@
     </developer>
   </developers>
 
-  <name>deepseek-reverse-call</name>
-  <url>http://maven.apache.org</url>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

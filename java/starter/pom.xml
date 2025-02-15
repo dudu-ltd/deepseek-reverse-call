@@ -1,23 +1,23 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  
-  <groupId>ltd.dudu</groupId>
-  <artifactId>deepseek-reverse-call-parent</artifactId>
-  <version>1.0.0-alpha2</version>
-  <packaging>pom</packaging>
+  <parent>
+    <groupId>ltd.dudu</groupId>
+    <artifactId>deepseek-reverse-call-parent</artifactId>
+    <version>1.0.0-alpha2</version>
+  </parent>
 
-  <name>deepseek-reverse-call-parent</name>
-  <url>https://github.com/dudu-ltd/deepseek-reverse-call</url>
-  
-  <modules>
-    <module>./core</module>
-    <module>./starter</module>
-  </modules>
-
+  <artifactId>deepseek-reverse-call-boot-starter</artifactId>
+  <version>${version}</version>
+  <packaging>jar</packaging>
   <description>
     一个通过实体类即可定义 DeepSeek 不同主题及 json 格式返回值的工具
   </description>
+
+  <name>deepseek-reverse-call-boot-starter</name>
+  <url>https://github.com/dudu-ltd/deepseek-reverse-call</url>
+
 
   <developers>
     <developer>
@@ -28,30 +28,28 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <fastjson.version>2.0.54</fastjson.version>
-    <lombok.version>1.18.36</lombok.version>
-    <swagger.version>2.2.28</swagger.version>
-    <st4.version>4.3.4</st4.version>
-    <version>1.0.0-alpha2</version>
+    <deepseek4j.version>1.3.2</deepseek4j.version>
   </properties>
 
   <dependencies>
-
-    <!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-api -->
     <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-      <version>2.0.16</version>
+      <groupId>io.github.pig-mesh.ai</groupId>
+      <artifactId>deepseek-spring-boot-starter</artifactId>
+      <version>${deepseek4j.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>ltd.dudu</groupId>
+      <artifactId>deepseek-reverse-call-core</artifactId>
+      <version>${version}</version>
+    </dependency>
+    <!-- https://mvnrepository.com/artifact/org.projectlombok/lombok -->
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <version>${lombok.version}</version>
+      <scope>provided</scope>
     </dependency>
 
-    <!-- https://mvnrepository.com/artifact/ch.qos.logback/logback-classic -->
-    <dependency>
-      <groupId>ch.qos.logback</groupId>
-      <artifactId>logback-classic</artifactId>
-      <version>1.5.16</version>
-    </dependency>
-
-    
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
@@ -59,7 +57,6 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
-
 
   <build>
     <plugins>
@@ -252,15 +249,17 @@
               </execution>
             </executions>
           </plugin>
+
         </plugins>
       </build>
     </profile>
   </profiles>
 
-  
+
   <scm>
     <connection>scm:git:https://github.com/dudu-ltd/deepseek-reverse-call</connection>
-    <developerConnection>scm:git:git@github.com/dudu-ltd/deepseek-reverse-call.git</developerConnection>
+    <developerConnection>scm:git:git@github.com/dudu-ltd/deepseek-reverse-call.git
+    </developerConnection>
     <url>https://github.com/dudu-ltd/deepseek-reverse-call</url>
     <tag>HEAD</tag>
   </scm>
@@ -273,14 +272,6 @@
       <comments>license</comments>
     </license>
   </licenses>
-<!--  <distributionManagement>-->
-<!--    <snapshotRepository>-->
-<!--      <id>ossrh</id>-->
-<!--      <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>-->
-<!--    </snapshotRepository>-->
-<!--    <repository>-->
-<!--      <id>ossrh</id>-->
-<!--      <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>-->
-<!--    </repository>-->
-<!--  </distributionManagement>-->
+
+
 </project>
