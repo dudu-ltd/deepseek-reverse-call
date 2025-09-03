@@ -53,6 +53,8 @@ class DeepSeekReverseCall {
     List<ChatCompletionMessage> defaultPromptMessage = apiSettings(dsrcApi);
     ChatCompletionMessage? formatMessage = formatSetting(dsrcApi);
 
+    var tools = toTools(dsrcApi);
+
     var userMessages = <ChatCompletionMessage>[
       if (messages != null) ...messages,
       if (msg != null)
@@ -77,6 +79,7 @@ class DeepSeekReverseCall {
     var logitBias = <String, int>{};
     final res = client.createChatCompletionStream(
       request: CreateChatCompletionRequest(
+        tools: tools.isEmpty ? null : tools,
         logitBias: logitBias,
         maxTokens: 8192,
         model: ChatCompletionModel.modelId(modelId),
@@ -99,6 +102,8 @@ class DeepSeekReverseCall {
       contentStream?.close();
     }
 
+    var toolCallsJson = <Map<String, dynamic>>[];
+
     res.listen(
       (event) {
         var delta = event.choices.first.delta;
@@ -110,6 +115,28 @@ class DeepSeekReverseCall {
           contentStream?.sink.add(delta.content!);
           content += delta.content!;
         }
+        if (delta.toolCalls != null) {
+          for (ChatCompletionStreamMessageToolCallChunk tcchunk
+              in delta.toolCalls ?? []) {
+            if (toolCallsJson.length <= tcchunk.index) {
+              toolCallsJson.add({
+                "id": "",
+                "type": "function",
+                "function": {"name": "", "arguments": ""}
+              });
+            }
+            var tc = toolCallsJson[tcchunk.index];
+            if (tcchunk.id != null) {
+              tc['id'] += tcchunk.id!;
+            }
+            if (tcchunk.function?.name != null) {
+              tc['function']['name'] += tcchunk.function!.name!;
+            }
+            if (tcchunk.function?.arguments != null) {
+              tc['function']['arguments'] += tcchunk.function!.arguments!;
+            }
+          }
+        }
       },
       onDone: done,
       onError: (e) => {
@@ -119,7 +146,11 @@ class DeepSeekReverseCall {
 
     await c.future;
 
-    if (dsrcApi.subTopics().isEmpty && dsrcApi.plainTopics.isEmpty) {
+    var toolCalls = toolCallsJson
+        .map((e) => ChatCompletionMessageToolCall.fromJson(e))
+        .toList();
+
+    if (toolCalls.isEmpty) {
       return content;
     }
 
@@ -133,6 +164,7 @@ class DeepSeekReverseCall {
         ),
         messages: userMessages,
         data: data,
+        toolCalls: toolCalls,
         api: dsrcApi,
         // response: res,
       ),
@@ -155,17 +187,17 @@ class DeepSeekReverseCall {
         plainTopics.isEmpty) {
       return null;
     }
-    var hasRouter = subTopics.isNotEmpty || plainTopics.isNotEmpty;
+    // var hasRouter = subTopics.isNotEmpty || plainTopics.isNotEmpty;
     var json = <String, dynamic>{};
-    if (hasRouter) {
-      json.addAll({
-        api.routerProp: '<${api.routerPrompt}${[
-          ...subTopics.map((e) => e.value),
-          ...plainTopics,
-        ].join("|")}|end，分别代表：${api.subTopics.call().map((e) => e.name).join('|')}|结束>',
-        api.dataProp: '<${api.dataPrompt}>',
-      });
-    }
+    // if (hasRouter) {
+    //   json.addAll({
+    //     api.routerProp: '<${api.routerPrompt}${[
+    //       ...subTopics.map((e) => e.value),
+    //       ...plainTopics,
+    //     ].join("|")}|end，分别代表：${api.subTopics.call().map((e) => e.name).join('|')}|结束>',
+    //     api.dataProp: '<${api.dataPrompt}>',
+    //   });
+    // }
     if (api.properties?.call().isNotEmpty == true) {
       var props = api.properties?.call() ?? {};
       if (globalParams == null) {
@@ -181,7 +213,7 @@ class DeepSeekReverseCall {
         );
       }
     }
-    var schemaContent = 'output json: ${JSON5.stringify(json)}, 输出多余内容我会很生气。';
+    var schemaContent = 'example output json: \n${JSON5.stringify(json)}';
     log?.d(schemaContent);
     return ChatCompletionMessage.system(
       content: schemaContent,
@@ -194,5 +226,41 @@ class DeepSeekReverseCall {
         return ChatCompletionMessage.system(content: e);
       }),
     ];
+  }
+
+  List<ChatCompletionTool> toTools(DsrcApi api) {
+    return api.subTopics().map((e) => toTool(e)).toList();
+  }
+
+  ChatCompletionTool toTool(DsrcApi api) {
+    var props = api.properties?.call() ?? <String, String>{};
+    return ChatCompletionTool.fromJson(
+      {
+        "type": "function",
+        "function": {
+          "name": api.value,
+          "strict": true,
+          "description": api.prompt().join('\n'),
+          "parameters": {
+            "type": "object",
+            "properties": {}..addEntries(
+                props.entries.map(
+                  (e) {
+                    return MapEntry<String, dynamic>(
+                      e.key,
+                      {
+                        "type": "string",
+                        "description": e.value,
+                      },
+                    );
+                  },
+                ),
+              ),
+            "required": api.properties?.call().keys.toList() ?? [],
+            "additionalProperties": false
+          },
+        }
+      },
+    );
   }
 }

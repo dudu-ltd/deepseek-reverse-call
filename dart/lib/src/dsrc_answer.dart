@@ -11,6 +11,7 @@ class ActionArgs {
   final List<ChatCompletionMessage>? messages;
   final CreateChatCompletionResponse? response;
   final DeepSeekReverseCall? dsrc;
+  final List<ChatCompletionMessageToolCall>? toolCalls;
   final DsrcApi api;
 
   ActionArgs({
@@ -20,6 +21,7 @@ class ActionArgs {
     this.messages,
     this.response,
     this.dsrc,
+    this.toolCalls,
     required this.api,
   });
 

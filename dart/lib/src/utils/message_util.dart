@@ -10,7 +10,11 @@ Map<String, dynamic> tryJsonDecode(String? msg) {
   var end = msg.lastIndexOf('}');
   if (start != -1 && end != -1) {
     msg = msg.substring(start, end + 1);
-    return JSON5.parse(msg);
+    try {
+      return JSON5.parse(msg);
+    } catch (e) {
+      return {"content": msg};
+    }
   }
   return {"content": msg};
 }

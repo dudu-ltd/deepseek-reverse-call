@@ -36,4 +36,8 @@ class DsrcApi {
   }) {
     context[value] = this;
   }
+
+  static DsrcApi getApi(String value) {
+    return context[value]!;
+  }
 }
